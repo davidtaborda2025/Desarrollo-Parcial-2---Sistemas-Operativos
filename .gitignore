@@ -1,44 +1,23 @@
-# ====================================================================
-# ARCHIVOS LÓGICOS DE PYTHON (Compilados y entornos virtuales)
-# ====================================================================
-__pycache__/
-*.py[cod]
-*$py.class
-*.elc
-.ipynb_checkpoints
+# 1. Ignorar absolutamente todo por defecto
+*
 
-# Entornos virtuales locales (Para que no subas gigas de librerías)
-venv/
-.venv/
-env/
-.env/
-ENV/
-build/
-dist/
+# 2. Permitir carpetas y archivos que estén en la raíz
+!src/
+!templates/
+!static/
+!application.py
+!requirements.txt
+!.gitignore
+!Dockerfile
+!README.md
 
-# ====================================================================
-# ARCHIVOS DE CONFIGURACIÓN DEL IDE (IntelliJ IDEA Ultimate)
-# ====================================================================
-.idea/
-*.iml
-*.iws
-*.ipr
-out/
+# 3. Asegurar que Git pueda entrar en las carpetas permitidas
+!src/**
+!templates/**
+!static/**
 
-# ====================================================================
-# CONFIGURACIONES DEL SISTEMA OPERATIVO Y LOGS
-# ====================================================================
-.DS_Store
-.DS_Store?
-._*
-.Spotlight-V100
-.Trashes
-ehthumbs.db
-Thumbs.db
-*.log
-
-# ====================================================================
-# VARIABLES DE ENTORNO (Seguridad para producción/Railway)
-# ====================================================================
-.env
-.flaskenv
+# 4. Excepciones explícitas dentro de las carpetas permitidas (por si acaso)
+**/__pycache__/
+**/*.py[cod]
+**/.DS_Store
+**/Thumbs.db
