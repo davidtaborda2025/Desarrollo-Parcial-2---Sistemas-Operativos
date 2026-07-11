@@ -5,6 +5,8 @@
 !src/
 !templates/
 !static/
+!docs/
+!docs/**
 !application.py
 !requirements.txt
 !.gitignore
