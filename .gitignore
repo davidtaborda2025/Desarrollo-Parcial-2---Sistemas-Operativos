@@ -1,0 +1,44 @@
+# ====================================================================
+# ARCHIVOS LÓGICOS DE PYTHON (Compilados y entornos virtuales)
+# ====================================================================
+__pycache__/
+*.py[cod]
+*$py.class
+*.elc
+.ipynb_checkpoints
+
+# Entornos virtuales locales (Para que no subas gigas de librerías)
+venv/
+.venv/
+env/
+.env/
+ENV/
+build/
+dist/
+
+# ====================================================================
+# ARCHIVOS DE CONFIGURACIÓN DEL IDE (IntelliJ IDEA Ultimate)
+# ====================================================================
+.idea/
+*.iml
+*.iws
+*.ipr
+out/
+
+# ====================================================================
+# CONFIGURACIONES DEL SISTEMA OPERATIVO Y LOGS
+# ====================================================================
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+*.log
+
+# ====================================================================
+# VARIABLES DE ENTORNO (Seguridad para producción/Railway)
+# ====================================================================
+.env
+.flaskenv

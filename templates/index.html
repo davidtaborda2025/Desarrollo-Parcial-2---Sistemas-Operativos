@@ -1,0 +1,334 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Simulador de Administración de Memoria - Parcial 2 SO</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}">
+</head>
+
+<body>
+    <header class="app-header">
+        <h1>Simulador de Administración de Memoria</h1>
+        <p class="subtitle">Sistemas Operativos - Universidad del Valle</p>
+        <a href="/reset" class="btn btn-reset">Reiniciar Simuladores</a>
+    </header>
+
+    {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+            <div class="flash-messages-container">
+                {% for category, message in messages %}
+                    <div class="flash-alert alert-{{ category }}">
+                    <span class="alert-icon">
+                        {% if category == 'danger' or category == 'error' %}
+                        {% elif category == 'success' %}
+                        {% else %}{% endif %}
+                    </span>
+                        <p class="alert-text">{{ message }}</p>
+                    </div>
+                {% endfor %}
+            </div>
+        {% endif %}
+    {% endwith %}
+
+    <main class="container">
+        <div class="tabs-nav">
+            <button class="tab-btn active" onclick="switchTab(this, 'tab-allocation')">Asignación Contigua (Imp. 1)</button>
+            <button class="tab-btn" onclick="switchTab(this, 'tab-paging')">Traducción por Paginación (Imp. 2)</button>
+        </div>
+
+        <section id="tab-allocation" class="tab-content active">
+            <div class="grid-layout">
+                <div class="card panel-controls">
+                    <h3>Configuración Inicial</h3>
+                    <form action="/contiguous/init" method="POST">
+                        <div class="form-group">
+                            <label for="sizes">Tamaño de Particiones Fijas (Separadas por comas):</label>
+                            <input type="text" id="sizes" name="sizes" placeholder="Ej: 100, 500, 200, 300" required>
+                        </div>
+                        <div class="form-group">
+                            <label for="strategy">Estrategia de Asignación:</label>
+                            <select id="strategy" name="strategy">
+                                <option value="First Fit" {% if c_strategy == 'First Fit' %}selected{% endif %}>First Fit (Primer Ajuste)</option>
+                                <option value="Best Fit" {% if c_strategy == 'Best Fit' %}selected{% endif %}>Best Fit (Mejor Ajuste)</option>
+                                <option value="Worst Fit" {% if c_strategy == 'Worst Fit' %}selected{% endif %}>Worst Fit (Peor Ajuste)</option>
+                            </select>
+                        </div>
+                        <button type="submit" class="btn btn-primary" style="width: 100%; margin-top: 15px; box-sizing: border-box;">
+                            Inicializar Memoria
+                        </button>
+                        <a href="/contiguous/reset_individual" class="btn" style="background-color: #dc3545; color: white; text-align: center; text-decoration: none; padding: 10px 12px; border-radius: 4px; font-size: 0.9rem; display: block; margin-top: 10px; width: 100%; box-sizing: border-box;">
+                            Reiniciar Simulación Memoria
+                        </a>
+                    </form>
+
+                    <hr>
+
+                    <h3>Operaciones de Procesos</h3>
+                    <form action="/contiguous/allocate" method="POST" {% if not session.get('contiguous_initialized') %}class="panel-deshabilitado"{% endif %}>
+
+                        {% if not session.get('contiguous_initialized') %}
+                            <div class="alert-info-ux">
+                                Por favor, configure e inicialice las particiones fijas de memoria primero para habilitar el alojamiento de procesos.
+                            </div>
+                        {% endif %}
+
+                        <div class="form-group">
+                            <label for="pid">ID del Proceso:</label>
+                            <input type="text" id="pid" name="pid" placeholder="Ej: PID1" required
+                                   {% if not session.get('contiguous_initialized') %}disabled{% endif %}>
+                        </div>
+                        <div class="form-group">
+                            <label for="size">Tamaño en Bytes:</label>
+                            <input type="number" id="size" name="size" placeholder="Ej: 250" min="1" required
+                                   {% if not session.get('contiguous_initialized') %}disabled{% endif %}>
+                        </div>
+                        <button type="submit" class="btn btn-success"
+                                {% if not session.get('contiguous_initialized') %}disabled style="background-color: #6c757d; border-color: #6c757d; cursor: not-allowed;"{% endif %}>
+                            Alojar Proceso
+                        </button>
+                    </form>
+                </div>
+
+                <div class="card panel-display">
+                    <h3>Estado de la Memoria Física (Estrategia: {{ c_strategy }})</h3>
+
+                    <div class="metrics-grid">
+                        <div class="metric-card bg-info">
+                            <h4>Bloques Libres</h4>
+                            <p class="metric-val">{{ free_blocks_count }}</p>
+                        </div>
+                        <div class="metric-card bg-warning">
+                            <h4>Bloques Ocupados</h4>
+                            <p class="metric-val">{{ occupied_blocks_count }}</p>
+                        </div>
+                        <div class="metric-card bg-danger">
+                            <h4>Frag. Interna Total</h4>
+                            <p class="metric-val">{{ internal_frag }} Bytes</p>
+                        </div>
+                        <div class="metric-card bg-purple">
+                            <h4>Frag. Externa Total</h4>
+                            <p class="metric-val">{{ external_frag }} Bytes</p>
+                        </div>
+                    </div>
+
+                    <h4>Representación Gráfica de Particiones</h4>
+                    <div class="memory-map">
+                        {% for block in c_blocks %}
+                            <div class="memory-block {% if block.is_free %}block-free{% else %}block-occupied{% endif %}">
+                                <div class="block-info">
+                                    <strong>Dirección inicial: {{ block.start_address }} | Tamaño: {{ block.size }}B</strong>
+                                    {% if not block.is_free %}
+                                        <p class="block-status">
+                                            Ocupado por:
+                                            {% for p in block.assigned_processes %}
+                                                <strong>{{ p.process_id }}</strong> ({{ p.size }}B){% if not loop.last %}, {% endif %}
+                                            {% endfor %}
+                                        </p>
+                                        <p class="frag-label">Frag. Interna: {{ block.internal_fragmentation }}B</p>
+                                    {% else %}
+                                        <p class="block-status">LIBRE / DISPONIBLE</p>
+                                    {% endif %}
+                                </div>
+                                {% if not block.is_free %}
+                                    <a href="/contiguous/release/{{ block.start_address }}" class="btn-release">&times; Liberar</a>
+                                {% endif %}
+                            </div>
+                        {% endfor %}
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <section id="tab-paging" class="tab-content">
+            <div class="grid-layout">
+                <div class="card panel-controls">
+                    <h3>Estructura del Hardware</h3>
+                    <form action="/paging/init" method="POST">
+                        <div class="form-group">
+                            <label for="ram_size">Tamaño RAM Física (Bytes):</label>
+                            <input type="number" id="ram_size" name="ram_size" value="{{ p_sim.frames|length * p_sim.page_size }}" required>
+                        </div>
+                        <div class="form-group">
+                            <label for="page_size">Tamaño de Página / Marco (Potencia de 2):</label>
+                            <input type="number" id="page_size" name="page_size" value="{{ p_sim.page_size }}" required>
+                        </div>
+                        <button type="submit" class="btn btn-primary" style="width: 100%; margin-top: 15px; box-sizing: border-box;">
+                            Configurar Hardware
+                        </button>
+                        <a href="/paging/reset_individual" class="btn" style="background-color: #dc3545; color: white; text-align: center; text-decoration: none; padding: 10px 12px; border-radius: 4px; font-size: 0.9rem; display: block; margin-top: 10px; width: 100%; box-sizing: border-box;">
+                            Reiniciar Simulación de Paginación
+                        </a>
+                    </form>
+
+                    <hr>
+
+                    <h3>Cargar Proceso en Memoria Virtual</h3>
+                    <form action="/paging/load" method="POST">
+                        <div class="form-group">
+                            <label for="v_pid">ID del Proceso:</label>
+                            <input type="text" id="v_pid" name="pid" placeholder="Ej: PID_A" required>
+                        </div>
+                        <div class="form-group">
+                            <label for="virtual_size">Espacio Virtual Requerido (Bytes):</label>
+                            <input type="number" id="virtual_size" name="virtual_size" placeholder="Ej: 2500" min="1" required>
+                        </div>
+                        <button type="submit" class="btn btn-success">Cargar en MV</button>
+                    </form>
+
+                    <hr>
+
+                    <h3>Simulador MMU (Traducción de Direcciones)</h3>
+                    <form action="/paging/translate" method="POST">
+                        <div class="form-group">
+                            <label for="t_pid">Seleccionar Proceso Activo:</label>
+                            <select id="t_pid" name="pid">
+                                {% for pid in p_sim.process_tables.keys() %}
+                                    <option value="{{ pid }}">{{ pid }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label for="virtual_address">Dirección Virtual a Traducir (Decimal):</label>
+                            <input type="number" id="virtual_address" name="virtual_address" placeholder="Ej: 1502" min="0" required>
+                        </div>
+                        <button type="submit" class="btn btn-mmu">Traducir Dirección via MMU</button>
+                    </form>
+                </div>
+
+                <div class="card panel-display">
+                    <h3>Subsistema de Memoria por Paginación</h3>
+                    <p><strong>Tamaño de Página de la Cátedra:</strong> {{ p_sim.page_size }} Bytes</p>
+
+                    {% if mmu_result %}
+                        <div class="mmu-box {% if mmu_result.success %}mmu-success{% else %}mmu-fault{% endif %}">
+                            <h4>Resultado de la Unidad de Gestión de Memoria (MMU)</h4>
+                            <p>Proceso: <strong>{{ mmu_result.pid }}</strong> | Dirección Virtual Consultada: <strong>{{ mmu_result.virtual_address }}</strong></p>
+                            <div class="mmu-steps">
+                                <p><strong>Paso 1 (Descomposición Matemática):</strong> Dirección {{ mmu_result.virtual_address }} / Página {{ p_sim.page_size }} = <strong>Página Virtual #{{ mmu_result.page_num }}</strong> | Residuo = <strong>Desplazamiento (Offset) {{ mmu_result.offset }}</strong></p>
+                                {% if mmu_result.success %}
+                                    <p><strong>Paso 2 (Mapeo de Tabla):</strong> La Página Virtual {{ mmu_result.page_num }} está cargada en el <strong>Marco Físico #{{ p_sim.process_tables[mmu_result.pid].get_frame(mmu_result.page_num) }}</strong>.</p>
+                                    <p class="mmu-final"> <strong>Dirección Física Real Calculada:</strong> {{ mmu_result.physical_address }}</p>
+                                {% else %}
+                                    <p class="mmu-final-fault"> <strong>PAGE FAULT (Fallo de Página):</strong> La Página Virtual {{ mmu_result.page_num }} no se encuentra mapeada en la memoria RAM física actual.</p>
+                                {% endif %}
+                            </div>
+                        </div>
+                    {% endif %}
+
+                    <h4>Pool de Marcos de la Memoria Física (RAM Real)</h4>
+                    <div class="frames-grid">
+                        {% for frame in p_sim.frames %}
+                            <div class="frame-card {% if frame.is_available %}frame-available{% else %}frame-occupied{% endif %}">
+                                <span class="frame-id">Marco {{ frame.frame_id }}</span>
+                                {% if not frame.is_available %}
+                                    <p class="frame-info">Proceso: <strong>{{ frame.assigned_process_id }}</strong></p>
+                                    <p class="frame-info">Pág. Lógica: #{{ frame.assigned_page_number }}</p>
+                                {% else %}
+                                    <p class="frame-info-free">DISPONIBLE</p>
+                                {% endif %}
+                            </div>
+                        {% endfor %}
+                    </div>
+
+                    <hr>
+
+                    <h4>Mapeo de Tablas de Páginas Activas</h4>
+                    {% if p_sim.process_tables %}
+                        <div class="tables-flex">
+                            {% for pid, table in p_sim.process_tables.items() %}
+                                <div class="table-container">
+                                    <h5>Tabla de Páginas: {{ pid }}</h5>
+                                    <table>
+                                        <thead>
+                                        <tr>
+                                            <th>Página Lógica</th>
+                                            <th>Marco Físico (RAM)</th>
+                                        </tr>
+                                        </thead>
+                                        <tbody>
+                                        {% for page, frame in table.current_mappings.items() %}
+                                            <tr>
+                                                <td>Página Virtual {{ page }}</td>
+                                                <td>Marco {{ frame }}</td>
+                                            </tr>
+                                        {% endfor %}
+                                        </tbody>
+                                    </table>
+                                </div>
+                            {% endfor %}
+                        </div>
+                    {% else %}
+                        <p class="no-data">No se han registrado procesos en memoria virtual aún.</p>
+                    {% endif %}
+                </div> </div> </section> </main>
+
+    <script>
+        // Al cargar la página, verificar inmediatamente si hay una pestaña guardada en el navegador
+        document.addEventListener("DOMContentLoaded", function() {
+            const activeTabId = localStorage.getItem('activeTabMemorySim');
+            if (activeTabId) {
+                // 1. Remover la clase 'active' de todos los contenidos y botones
+                document.querySelectorAll(".tab-content").forEach(content => content.classList.remove("active"));
+                document.querySelectorAll(".tab-btn").forEach(btn => btn.classList.remove("active"));
+
+                // 2. Activar el contenedor de la pestaña que guardamos
+                const targetTab = document.getElementById(activeTabId);
+                if (targetTab) {
+                    targetTab.classList.add("active");
+                }
+
+                // 3. Encender visualmente el botón correspondiente
+                const targetBtn = Array.from(document.querySelectorAll(".tab-btn"))
+                    .find(btn => btn.getAttribute("onclick").includes(activeTabId));
+                if (targetBtn) {
+                    targetBtn.classList.add("active");
+                }
+            }
+        });
+
+        // Función original modificada para guardar la pestaña antes del refresh
+        function switchTab(element, tabId) {
+            let i, tabcontent, tablinks;
+            tabcontent = document.getElementsByClassName("tab-content");
+            for (i = 0; i < tabcontent.length; i++) {
+                tabcontent[i].classList.remove("active");
+            }
+            tablinks = document.getElementsByClassName("tab-btn");
+            for (i = 0; i < tablinks.length; i++) {
+                tablinks[i].classList.remove("active");
+            }
+            const targetTab = document.getElementById(tabId);
+            if (targetTab) {
+                targetTab.classList.add("active");
+            }
+            element.classList.add("active");
+
+            // Guardamos el ID de la pestaña activa en el almacenamiento local
+            localStorage.setItem('activeTabMemorySim', tabId);
+        }
+    </script>
+    <script>
+        document.addEventListener("DOMContentLoaded", function() {
+            // Selecciona todas las alertas dentro de nuestro contenedor de Flask
+            const alerts = document.querySelectorAll('.flash-alert');
+
+            alerts.forEach(function(alert) {
+                // Espera 5000 milisegundos (5 segundos) antes de iniciar la animación
+                setTimeout(function() {
+                    // Aplicamos una transición CSS de opacidad
+                    alert.style.transition = "opacity 0.6s ease, transform 0.6s ease";
+                    alert.style.opacity = "0";
+                    alert.style.transform = "translateY(-10px)"; // Efecto sutil de subida
+
+                    // Esperamos a que termine la animación (600ms) para remover el elemento del DOM
+                    setTimeout(function() {
+                        alert.remove();
+                    }, 600);
+
+                }, 5000);
+            });
+        });
+    </script>
+</body>
+</html>
