@@ -4,7 +4,7 @@ Este repositorio contiene la implementación formal, robusta y modular de un sis
 
 El desarrollo ha sido estructurado bajo el paradigma de Programación Orientada a Objetos (POO) en Python, utilizando el microframework Flask para la capa de servicios web, garantizando un aislamiento completo del entorno mediante su ejecución en un contenedor de Docker.
 
-Desarrollo realizado por el estudiante **David Taborda Montenegro**, para el segundo examen parcial de la asignatura **Sistemas Operativos** en la **Universidad del Valle**.
+Desarrollo realizado por el estudiante **David Taborda Montenegro (202242264-3743)**, para el segundo examen parcial de la asignatura **Sistemas Operativos** en la **Universidad del Valle**.
 
 ---
 
