@@ -38,7 +38,7 @@ A continuación, se detalla la distribución del código fuente y los recursos d
 
 ```text
 ├── docs/
-│   └── Desarrollo Parcial 2 - David Taborda M.pdf  # Informe explicativo formal
+│   └── Desarrollo Parcial 2 - David Taborda M.pdf  # Informe explicativo formal.
 │
 ├── src/
 │   ├── memory_allocation.py                        # Lógica y estrategias de asignación contigua.
